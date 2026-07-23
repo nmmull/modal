@@ -1,0 +1,3 @@
+(library
+ (name modal)
+ (libraries fmt alcotest))
