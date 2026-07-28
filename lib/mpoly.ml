@@ -32,6 +32,11 @@ module Mono (M : CARRIER) = struct
   let zero = const M.zero
   let one = const M.one
 
+  let is_const (c, ts) =
+    match ts with
+    | [] -> Some c
+    | _ -> None
+
   let coeff (c, _) = c
   let base (_, x) = x
 
@@ -90,6 +95,13 @@ module Poly (M : CARRIER) = struct
     if M.(equal c zero)
     then S.empty
     else S.singleton (Mono.const c)
+
+  let is_const p =
+    if S.is_empty p
+    then Some M.zero
+    else if S.cardinal p = 1
+    then Mono.is_const (S.choose p)
+    else None
 
   let of_mono m =
     if Mono.(equal m zero)
@@ -153,6 +165,19 @@ module Make (M : CARRIER) = struct
   let zero = const M.zero
   let one = const M.one
 
+  let normalize p =
+    let combiner q (const_opt, acc) =
+      match const_opt, Poly.is_const q with
+      | None, None -> None, S.add q acc
+      | None, Some m -> Some m, acc
+      | Some m, None -> None, S.add q acc
+      | Some m, Some n -> Some (M.meet m n), acc
+    in
+    let (m, p) = S.fold combiner p (None, S.empty) in
+    match m with
+    | None -> p
+    | Some m -> S.add (Poly.const m) p
+
   let add = S.fold (fun p -> S.map (Poly.add p))
 
   let lmul m q = S.map (Poly.lmul m) q
@@ -161,7 +186,7 @@ module Make (M : CARRIER) = struct
 
   let meet = S.union
 
-  let lte p q = equal p (meet p q)
+  let lte p q = equal (normalize p) (normalize (meet p q))
 
   let pp = Fmt.(using S.to_list ((list ~sep:(any "@;<1 0>∧@ ")) Poly.pp))
   let test = Alcotest.testable pp equal

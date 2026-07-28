@@ -84,5 +84,5 @@ module Make : functor (M : CARRIER) -> sig
   val me_wf : ?bound:string list -> Ctxt.t -> Mexpr.t -> bool
   val ty_wf : Ctxt.t -> Type.t -> bool
 
-  val infer : Ctxt.t -> Expr.t -> (Type.t * Mctxt.t) option
+  val infer : Ctxt.t -> Expr.t -> (Type.t * Mctxt.t, string) result
 end

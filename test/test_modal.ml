@@ -16,9 +16,9 @@ let check_ty =
   let open Lambda_linear in
   Alcotest.check Type.test "same type"
 
-let check_oty =
+let check_rty =
   let open Lambda_linear in
-  Alcotest.(check (option Type.test) "same type")
+  Alcotest.(check (result Type.test string) "same type")
 
 let linear_tests =
   let open Alcotest in
@@ -121,10 +121,10 @@ let poly_tests =
 let infer_tests =
   let open Alcotest in
   let open Lambda_linear in
-  let infer ctxt e = Option.map fst (Lambda_linear.infer ctxt e) in
+  let infer ctxt e = Result.map fst (Lambda_linear.infer ctxt e) in
   let unit_test () =
-    check_oty
-      (Some Unit)
+    check_rty
+      (Ok Unit)
       (infer Ctxt.empty Unit)
   in
   let var_test () =
@@ -134,8 +134,8 @@ let infer_tests =
       |> add_ty_var "A"
       |> add_decl "x" (Var "A")
     in
-    check_oty
-      (Some (Var "A"))
+    check_rty
+      (Ok (Var "A"))
       (infer ctxt (Var "x"))
   in
   let var_test_2 () =
@@ -146,8 +146,8 @@ let infer_tests =
       |> add_decl "x" (Var "A")
       |> add_decl "y" (Var "A")
     in
-    check_oty
-      (Some (Var "A"))
+    check_rty
+      (Ok (Var "A"))
       (infer ctxt (Var "x"))
   in
   let id_test () =
@@ -156,8 +156,8 @@ let infer_tests =
       empty
       |> add_ty_var "A"
     in
-    check_oty
-      (Some (Fun (Mexpr.one, Var "A", Var "A")))
+    check_rty
+      (Ok (Fun (Mexpr.one, Var "A", Var "A")))
       (infer ctxt (Lam (Mexpr.one, "x", Var "A", Var "x")))
   in
   let id_test_2 () =
@@ -166,8 +166,8 @@ let infer_tests =
       empty
       |> add_ty_var "A"
     in
-    check_oty
-      (Some (Fun (Const Omega, Var "A", Var "A")))
+    check_rty
+      (Ok (Fun (Const Omega, Var "A", Var "A")))
       (infer ctxt (Lam (Const Omega, "x", Var "A", Var "x")))
   in
   [

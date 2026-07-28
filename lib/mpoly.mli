@@ -4,6 +4,7 @@ module Mono : functor (M : CARRIER) -> sig
   type elt =
     | Var of string
     | Const of M.t
+
   type t
 
   val compare : t -> t -> int
@@ -36,7 +37,7 @@ module Poly : functor (M : CARRIER) -> sig
 
   val var : string -> t
   val const : M.t -> t
-  val of_list : Mono (M).t list -> t
+  val of_list : Mono(M).t list -> t
 
   val zero : t
   val one : t

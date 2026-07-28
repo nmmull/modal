@@ -217,54 +217,65 @@ module Make (M : CARRIER) = struct
         && go bound b
     in go [] ty
 
-  let ( let* ) = Option.bind
-  let guard b = if b then Some () else None
+  let ( let* ) = Result.bind
+  let guard b e = if b then Ok () else Error e
+  let w_err o none = Option.to_result ~none o
 
   let rec infer ctxt (e : Expr.t) =
     match e with
     | Var x ->
-      let* a = C.find_decl_opt x ctxt in
-      Some (a, Mc.singleton x)
+      let* a = w_err (C.find_decl_opt x ctxt) "unknown variable" in
+      Ok (a, Mc.singleton x)
     | Lam (q, x, a, t) ->
       let ctxt = C.add_decl x a ctxt in
       let* (b, gamma) = infer ctxt t in
-      let* () = guard (P.lte (Me.eval q) (Mc.find x gamma)) in
+      let* () =
+        let i = Me.eval q in
+        let j = Mc.find x gamma in
+        let msg = Format.asprintf "lambda annotation error: %a > %a" P.pp i P.pp j in
+        guard (P.lte (Me.eval q) (Mc.find x gamma)) msg in
       let gamma = C.remove x gamma in
-      Some (T.Fun (q, a, b), gamma)
+      Ok (T.Fun (q, a, b), gamma)
     | App (t, q, u) ->
       begin
         match infer ctxt t, infer ctxt u with
-        | Some (Fun (q', a, b), gamma), Some (a', delta) when a = a' && q = q' ->
-          Some (b, Mc.(madd gamma (lmul (Me.eval q) delta)))
-        | _ -> None
+        | Ok (Fun (q', a, b), gamma), Ok (a', delta) when a = a' && q = q' ->
+          Ok (b, Mc.(madd gamma (lmul (Me.eval q) delta)))
+        | _ -> Error "Application error" (* TODO *)
       end
     | LamT (alpha, t) ->
       let ctxt = C.add_ty_var alpha ctxt in
       let* (b, gamma) = infer ctxt t in
-      Some (T.ForallT (alpha, b), gamma)
+      Ok (T.ForallT (alpha, b), gamma)
     | AppT (t, a) ->
       begin
         match infer ctxt t with
-        | Some (T.ForallT (alpha, b), gamma) ->
-          let* () = guard (ty_wf ctxt a) in
-          Some (T.subst_ty b a alpha, gamma)
-        | _ -> None
+        | Ok (T.ForallT (alpha, b), gamma) ->
+          let* () =
+            let msg = Format.asprintf "type '%a' is not well-formed" T.pp a in
+            guard (ty_wf ctxt a) msg
+          in
+          Ok (T.subst_ty b a alpha, gamma)
+        | _ -> Error "type application error" (* TODO *)
       end
     | LamM (m, t) ->
       let ctxt = C.add_mod_var m ctxt in
       let* (b, gamma) = infer ctxt t in
-      Some (T.ForallM (m, b), gamma)
+      Ok (T.ForallM (m, b), gamma)
     | AppM (t, q) ->
       begin
         match infer ctxt t with
-        | Some (T.ForallM (m, b), gamma) ->
-          let* () = guard (me_wf ctxt q) in
-          Some (T.subst_mod b q m, gamma)
-        | _ -> None
+        | Ok (T.ForallM (m, b), gamma) ->
+          let* () =
+            let msg = Format.asprintf "modal expression '%a' is not well-formed" Me.pp q in
+            guard (me_wf ctxt q) msg
+          in
+          Ok (T.subst_mod b q m, gamma)
+        | _ -> Error "modal application error" (* TODO *)
       end
-    | Unit -> Some (Unit, Mc.empty)
+    | Unit -> Ok (Unit, Mc.empty)
     | LetUnit (p, t, u) ->
       let* (a, gamma) = infer ctxt t in
       let* (c, delta) = infer ctxt u in
-      Some (c, Mc.(madd (lmul (Me.eval p) gamma) delta))
+      Ok (c, Mc.(madd (lmul (Me.eval p) gamma) delta))
 end
